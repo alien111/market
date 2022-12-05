@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/Users/macbook/Desktop/market/contracts/MNT.sol": {
-      "lastModificationDate": 1669898483423,
-      "contentHash": "f04d43045a8400cc96cc565dc91f2743",
+      "lastModificationDate": 1670262977475,
+      "contentHash": "63d0d90bb30e070ca9221297bc0b126b",
       "sourceName": "contracts/MNT.sol",
       "solcConfig": {
         "version": "0.8.17",
@@ -35,7 +35,7 @@
         "^0.8.17"
       ],
       "artifacts": [
-        "MNT"
+        "Token"
       ]
     },
     "/Users/macbook/Desktop/market/node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
@@ -185,8 +185,8 @@
       ]
     },
     "/Users/macbook/Desktop/market/contracts/Market.sol": {
-      "lastModificationDate": 1669898483421,
-      "contentHash": "c65337c6840b3ab9b9377d834363b397",
+      "lastModificationDate": 1670264276433,
+      "contentHash": "8bd14a1f95e5596417e7bb4257c1cc04",
       "sourceName": "contracts/Market.sol",
       "solcConfig": {
         "version": "0.8.17",
@@ -211,7 +211,9 @@
           }
         }
       },
-      "imports": [],
+      "imports": [
+        "./MNT.sol"
+      ],
       "versionPragmas": [
         "^0.8.17"
       ],

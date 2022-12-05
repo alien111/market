@@ -18,15 +18,16 @@ contract Market {
 
 	mapping(address => uint) amountOfSwappedEther;
 	mapping(bytes32 => Item) hash2Item;
-	bytes32[] hashes;
-	mapping(address => bytes32[]) address2hashes;
 
 	mapping(bytes32 => bool) confirmedBySeller;
 	mapping(bytes32 => bool) confirmedByBuyer;
+	//bytes32 hashes[] = new bytes32[](0);
 
 	IERC20 public MNT;
 	uint public MNTPrice = 1; // TODO: Check this variable to be safe !!!
-	uint public contractComission = 0;
+
+	uint public contractFee = 0;
+	uint public contractFeeSum = 0;
 
 	constructor() payable {
 
@@ -53,7 +54,10 @@ contract Market {
 	function sellMNT(uint amount) public payable {
 
 		uint transferAmount = MNT2ETH(amount);
-		// TODO: add comission
+
+		uint currentFee = transferAmount * contractFee;
+		transferAmount -= currentFee;
+		contractFeeSum += currentFee;
 
 		require(MNT.allowance(msg.sender, address(this)) >= amount, "Insufficient contract allowance");
 		require(address(this).balance >= transferAmount, "Insufficient amount of ETH on the contract!");
@@ -61,7 +65,7 @@ contract Market {
 		require(MNT.transferFrom(msg.sender, address(this), amount), "MNT transfer error!");
 
 		//bool sent = payable(msg.sender).send(transferAmount); // deprecated
-		(bool sent, bytes memory data) = payable(msg.sender).call{value: transferAmount}("");
+		(bool sent, ) = payable(msg.sender).call{value: transferAmount}("");
 
 		require(sent, "ETH transfer error!");
 
@@ -69,7 +73,7 @@ contract Market {
 
 	}
 
-	function getItemHashByFields(string memory name_, string memory description_, uint price_, uint timeCreated_, uint timeSold_, address seller_, address buyer_) private internal returns (bytes32) {
+	function getItemHashByFields(string memory name_, string memory description_, uint price_, uint timeCreated_, uint timeSold_, address seller_, address buyer_) internal pure returns (bytes32) {
 
 		return keccak256(abi.encode(name_, description_, price_, timeCreated_, timeSold_, seller_, buyer_));
 
@@ -77,12 +81,11 @@ contract Market {
 
 	function addItem(string memory name_, string memory description_, uint price_) public {
 
-		//bytes32 hash_ = keccak256(abi.encode(name_, description_, price_, now, 0, msg.sender, address(0)));
-		bytes32 hash = getItemHashByFields(name_, description_, price_, now, 0, msg.sender, address(0));
+		//bytes32 hash_ = keccak256(abi.encode(name_, description_, price_, block.timestamp, 0, msg.sender, address(0)));
+		bytes32 hash = getItemHashByFields(name_, description_, price_, block.timestamp, 0, msg.sender, address(0));
 
-		hash2Item[hash] = Item(name_, description_, price_, now, 0, msg.sender, address(0));
-		address2hashes[msg.sender].push(hash);
-		hashes.push(hash);
+		hash2Item[hash] = Item(name_, description_, price_, block.timestamp, 0, msg.sender, address(0));
+		// TODO: emit events to be able to search for hashes!
 
 	}
 
@@ -92,26 +95,38 @@ contract Market {
 
 	} // TODO: check if this function is really needed
 
-	function updateItemOnceSold(bytes32 hash, address buyer_, uint timeSold_) private internal returns (bytes32) {
+	function updateItemOnceSold(bytes32 hash, address buyer_, uint timeSold_) internal returns (bytes32) {
 
-		Item item = hash2Item[hash];
+		Item memory item = hash2Item[hash];
 		bytes32 newHash = getItemHashByFields(item.name, item.description, item.price, item.timeCreated, timeSold_, item.seller, buyer_);
 		
 		hash2Item[newHash] = Item(item.name, item.description, item.price, item.timeCreated, timeSold_, item.seller, buyer_);
-		hash2Item[hash] = 0;
+		delete hash2Item[hash];
+		// TODO: emit events to ensure hash change
 
 		return newHash;
 
 	}
 
-	function buyItem(bytes32 hash) public returns(bytes32) {
+	function updateItemOnceCanceled(bytes32 hash) internal {
 
-		require(hash2Item[hash], "Item doesn't exist");
+		Item memory item = hash2Item[hash];
+		bytes32 newHash = getItemHashByFields(item.name, item.description, item.price, item.timeCreated, 0, item.seller, address(0));
+		
+		hash2Item[newHash] = Item(item.name, item.description, item.price, item.timeCreated, 0, item.seller, address(0));
+		delete hash2Item[hash];
+		// TODO: emit events to ensure hash change
 
-		require(MNT.allowance(msg.sender, address(this)) >= amount, "Insufficient contract allowance");
-		require(MNT.transferFrom(msg.sender, address(this), amount), "Token transfer to contract error");
+	}
 
-		bytes32 newHash = updateItemOnceSold(hash, msg.sender, now);
+	function buyItem(bytes32 hash) public returns (bytes32) {
+
+		require(hash2Item[hash].timeCreated == 0, "Item doesn't exist");
+
+		require(MNT.allowance(msg.sender, address(this)) >= hash2Item[hash].price, "Insufficient contract allowance");
+		require(MNT.transferFrom(msg.sender, address(this), hash2Item[hash].price), "Token transfer to contract error");
+
+		bytes32 newHash = updateItemOnceSold(hash, msg.sender, block.timestamp);
 
 		return newHash;
 
@@ -119,7 +134,7 @@ contract Market {
 
 	function confirmSelling(bytes32 hash) public {
 
-		require(hash2Item[hash], "Item doesn't exist");
+		require(hash2Item[hash].timeCreated == 0, "Item doesn't exist");
 		require(hash2Item[hash].seller == msg.sender, "You are not seller");
 		require(confirmedBySeller[hash] == false, "Item isn't waiting confirmation from seller");
 
@@ -129,7 +144,7 @@ contract Market {
 
 	function confirmBuying(bytes32 hash) public {
 
-		require(hash2Item[hash], "Item doesn't exist");
+		require(hash2Item[hash].timeCreated == 0, "Item doesn't exist");
 		require(hash2Item[hash].buyer == msg.sender, "You are not buyer");
 		require(confirmedByBuyer[hash] == false, "Item isn't waiting confirmation from buyer");
 
@@ -139,29 +154,24 @@ contract Market {
 
 	function cancelBuying(bytes32 hash) public {
 
-		require(hash2Item[hash], "Item doesn't exist");
+		require(hash2Item[hash].timeCreated == 0, "Item doesn't exist");
 		require(hash2Item[hash].buyer == msg.sender, "You are not buyer");
 		require(confirmedBySeller[hash] == false, "Item isn't waiting confirmation from buyer");
 
-		// TODO: undo all the steps to active selling
+		updateItemOnceCanceled(hash);
 
 	}
 
-	function claimFreezedCNT(bytes32 hash) public {
+	function claimFrozenCNT(bytes32 hash) public {
 
-		require(hash2Item[hash], "Item doesn't exist");
+		require(hash2Item[hash].timeCreated == 0, "Item doesn't exist");
 		require(hash2Item[hash].seller == msg.sender, "You are not seller");
 		require(confirmedByBuyer[hash], "Selling is not confirmed by buyer");
 		require(confirmedBySeller[hash], "Confirm selling first");
 
-		// TODO: transfer freezed tokens to seller
-
+		require(MNT.transfer(msg.sender, hash2Item[hash].price), "MNT transfer error");
 
 	}
-
-	// TODO: freeze funds until conformation of both sides, add deal deadline, withdraw function, claim back function
-	// 		 and MNT sell function with owner's comission.
-
 
 	function getMNTPrice() public view returns (uint) {
 		return MNTPrice;
@@ -171,20 +181,28 @@ contract Market {
 		MNTPrice = price;
 	}
 
-	function getContractComission() public view returns (uint) {
-		return contractComission;
+	function getContractFee() public view returns (uint) {
+		return contractFee;
 	}
 
-	function setContractComission(uint comission) public onlyOwner {
-		contractComission = comission;
+	function setContractFee(uint comission) public onlyOwner {
+		contractFee = comission;
 	}
 
 	function MNT2ETH(uint amount) public view returns (uint) {
-		return amount / getCTokenPrice();
+		return amount / getMNTPrice();
 	}
 
 	function ETH2MNT(uint amount) public view returns (uint) {
-		return amount * getCTokenPrice();
+		return amount * getMNTPrice();
+	}
+
+	function claimContractFee(uint amount) public payable onlyOwner {
+
+		require(amount <= contractFeeSum, "Not enough ether to transfer");
+		(bool sent, ) = payable(owner).call{value: amount}("");
+		require(sent, "ETH transfer error!");
+
 	}
 
 }
