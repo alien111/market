@@ -2,6 +2,8 @@ pragma solidity ^0.8.17;
 
 import "./MNT.sol";
 
+// TODO: Check if allowance is really needed
+
 contract Market {
 
 	struct Item {
