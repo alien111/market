@@ -18,8 +18,8 @@ contract Market {
 
 	address payable public owner;
 
-	mapping(address => uint) amountOfSwappedEther;
-	mapping(bytes32 => Item) hash2Item;
+	mapping(address => uint) public amountOfSwappedEther;
+	mapping(bytes32 => Item) public hash2Item;
 
 	mapping(bytes32 => bool) confirmedBySeller;
 	mapping(bytes32 => bool) confirmedByBuyer;
@@ -91,7 +91,7 @@ contract Market {
 
 	}
 
-	function getItemByHash(bytes32 hash) public view returns(Item memory) {
+	function getItemByHash(bytes32 hash) public view returns (Item memory) {
 
 		return hash2Item[hash];
 
