@@ -6,6 +6,8 @@ import "./MNT.sol";
 
 contract Market {
 
+	event ItemAdded(address indexed _by, bytes32 indexed _hash);
+
 	struct Item {
 		string name;		// item name
 		string description;	// item description
@@ -88,6 +90,7 @@ contract Market {
 
 		hash2Item[hash] = Item(name_, description_, price_, block.timestamp, 0, msg.sender, address(0));
 		// TODO: emit events to be able to search for hashes!
+		emit ItemAdded(msg.sender, hash);
 
 	}
 
