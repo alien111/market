@@ -7,6 +7,10 @@ import "./MNT.sol";
 contract Market {
 
 	event ItemAdded(address indexed _by, bytes32 indexed _hash);
+	event MNTBought(address indexed _by, uint _amountOfMNT, uint _amountOfETH);
+	event MNTSold(address indexed _by, uint _amountOfMNT, uint _amountOfETH);
+	//event ItemHashChanged(bytes32 indexed _oldHash, bytes32 indexed _newHash);
+	event ItemBooked(address indexed _by, bytes32 indexed _oldHash, bytes32 indexed _newHash);
 
 	struct Item {
 		string name;		// item name
@@ -53,6 +57,8 @@ contract Market {
 
 		amountOfSwappedEther[msg.sender] += msg.value;
 
+		emit MNTBought(msg.sender, msg.value, transferAmount);
+
 	}
 
 	function sellMNT(uint amount) public payable {
@@ -74,6 +80,8 @@ contract Market {
 		require(sent, "ETH transfer error!");
 
 		amountOfSwappedEther[msg.sender] -= transferAmount;
+
+		emit MNTSold(msg.sender, amount, transferAmount);
 
 	}
 
@@ -98,7 +106,7 @@ contract Market {
 
 		return hash2Item[hash];
 
-	} // TODO: check if this function is really needed
+	}
 
 	function updateItemOnceSold(bytes32 hash, address buyer_, uint timeSold_) internal returns (bytes32) {
 
@@ -124,16 +132,16 @@ contract Market {
 
 	}
 
-	function buyItem(bytes32 hash) public returns (bytes32) {
+	function buyItem(bytes32 hash) public {
 
-		require(hash2Item[hash].timeCreated == 0, "Item doesn't exist");
+		require(hash2Item[hash].timeCreated != 0, "Item doesn't exist");
 
 		require(MNT.allowance(msg.sender, address(this)) >= hash2Item[hash].price, "Insufficient contract allowance");
 		require(MNT.transferFrom(msg.sender, address(this), hash2Item[hash].price), "Token transfer to contract error");
 
 		bytes32 newHash = updateItemOnceSold(hash, msg.sender, block.timestamp);
 
-		return newHash;
+		emit ItemBooked(msg.sender, hash, newHash);
 
 	}
 
