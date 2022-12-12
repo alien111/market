@@ -11,6 +11,10 @@ contract Market {
 	event MNTSold(address indexed _by, uint _amountOfMNT, uint _amountOfETH);
 	//event ItemHashChanged(bytes32 indexed _oldHash, bytes32 indexed _newHash);
 	event ItemBooked(address indexed _by, bytes32 indexed _oldHash, bytes32 indexed _newHash);
+	event DealConfirmedBySeller(address indexed _by, bytes32 indexed _hash);
+	event DealConfirmedByBuyer(address indexed _by, bytes32 indexed _hash);
+	event MNTPaidForDeal(address indexed _to, bytes32 indexed _hash);
+	event DealCanceledByBuyer(address indexed _by, bytes32 indexed _hash, bytes32 indexed _newHash);
 
 	struct Item {
 		string name;		// item name
@@ -115,20 +119,20 @@ contract Market {
 		
 		hash2Item[newHash] = Item(item.name, item.description, item.price, item.timeCreated, timeSold_, item.seller, buyer_);
 		delete hash2Item[hash];
-		// TODO: emit events to ensure hash change
 
 		return newHash;
 
 	}
 
-	function updateItemOnceCanceled(bytes32 hash) internal {
+	function updateItemOnceCanceled(bytes32 hash) internal returns (bytes32) {
 
 		Item memory item = hash2Item[hash];
 		bytes32 newHash = getItemHashByFields(item.name, item.description, item.price, item.timeCreated, 0, item.seller, address(0));
 		
 		hash2Item[newHash] = Item(item.name, item.description, item.price, item.timeCreated, 0, item.seller, address(0));
 		delete hash2Item[hash];
-		// TODO: emit events to ensure hash change
+
+		return newHash;
 
 	}
 
@@ -147,42 +151,50 @@ contract Market {
 
 	function confirmSelling(bytes32 hash) public {
 
-		require(hash2Item[hash].timeCreated == 0, "Item doesn't exist");
+		require(hash2Item[hash].timeCreated != 0, "Item doesn't exist");
 		require(hash2Item[hash].seller == msg.sender, "You are not seller");
 		require(confirmedBySeller[hash] == false, "Item isn't waiting confirmation from seller");
 
 		confirmedBySeller[hash] = true;
+
+		emit DealConfirmedBySeller(msg.sender, hash);
 	
 	}
 
 	function confirmBuying(bytes32 hash) public {
 
-		require(hash2Item[hash].timeCreated == 0, "Item doesn't exist");
+		require(hash2Item[hash].timeCreated != 0, "Item doesn't exist");
 		require(hash2Item[hash].buyer == msg.sender, "You are not buyer");
 		require(confirmedByBuyer[hash] == false, "Item isn't waiting confirmation from buyer");
 
 		confirmedByBuyer[hash] = true;
 
+		emit DealConfirmedByBuyer(msg.sender, hash);
+
 	}
 
 	function cancelBuying(bytes32 hash) public {
 
-		require(hash2Item[hash].timeCreated == 0, "Item doesn't exist");
+		require(hash2Item[hash].timeCreated != 0, "Item doesn't exist");
 		require(hash2Item[hash].buyer == msg.sender, "You are not buyer");
-		require(confirmedBySeller[hash] == false, "Item isn't waiting confirmation from buyer");
+		require(confirmedBySeller[hash] != true, "Item isn't waiting confirmation from buyer");
 
-		updateItemOnceCanceled(hash);
+		bytes32 newHash = updateItemOnceCanceled(hash);
+
+		emit DealCanceledByBuyer(msg.sender, hash, newHash);
 
 	}
 
-	function claimFrozenCNT(bytes32 hash) public {
+	function claimFrozenMNT(bytes32 hash) public {
 
-		require(hash2Item[hash].timeCreated == 0, "Item doesn't exist");
+		require(hash2Item[hash].timeCreated != 0, "Item doesn't exist");
 		require(hash2Item[hash].seller == msg.sender, "You are not seller");
 		require(confirmedByBuyer[hash], "Selling is not confirmed by buyer");
 		require(confirmedBySeller[hash], "Confirm selling first");
 
 		require(MNT.transfer(msg.sender, hash2Item[hash].price), "MNT transfer error");
+
+		emit MNTPaidForDeal(msg.sender, hash);
 
 	}
 

@@ -91,7 +91,7 @@ describe("Market", function () {
 		await mnt.transfer(signers[1].address, 2500000);
 
 		expect((await mnt.balanceOf(signers[0].address)).toString()).to.equal('2500000');
-		expect((await mnt.balanceOf(signers[1].address)).toString()).to.equal('2500000');		
+		expect((await mnt.balanceOf(signers[1].address)).toString()).to.equal('2500000');
 
 	});
 
@@ -143,12 +143,62 @@ describe("Market", function () {
 		expect(result1.seller).to.equal(signers[0].address);
 		expect(result1.buyer).to.equal(signers[1].address);
 
+		expect((await mnt.balanceOf(signers[1].address)).toString()).to.equal('2499800');
+		expect((await mnt.balanceOf(marketAddress)).toString()).to.equal('999999999999995000200');
+
 	});
 
-	it("Should confirm deal and give access to MNT", async function () {
+	it("Should confirm deal(seller)", async function () {
 
+		const tx = await market.confirmSelling(bananaNewHash);
+		const result = await tx.wait();
+
+		for (const event of result.events) {
+			if (event.event == 'DealConfirmedBySeller') {
+				expect(event.args._by).to.equal(signers[0].address);
+				expect(event.args._hash).to.equal(bananaNewHash);
+			}
+		}
+
+	});
+
+	it("Should confirm deal(buyer)", async function () {
+
+		const tx = await market.connect(signers[1]).confirmBuying(bananaNewHash);
+		const result = await tx.wait();
+
+		for (const event of result.events) {
+			if (event.event == 'DealConfirmedByBuyer') {
+				expect(event.args._by).to.equal(signers[1].address);
+				expect(event.args._hash).to.equal(bananaNewHash);
+			}
+		}
 		
+	});
+
+	it("Should give seller access to frozen MNT", async function () {
+
+		const tx = await market.claimFrozenMNT(bananaNewHash);
+		const result = await tx.wait();
 		
+		for (const event of result.events) {
+			if (event.event == 'claimFrozenMNT') {
+				expect(event.args._to).to.equal(signers[0].address);
+				expect(event.args._hash).to.equal(bananaNewHash);
+			}
+		}
+
+		expect((await mnt.balanceOf(signers[0].address)).toString()).to.equal('2500200');
+		expect((await mnt.balanceOf(signers[1].address)).toString()).to.equal('2499800');
+		expect((await mnt.balanceOf(marketAddress)).toString()).to.equal('999999999999995000000');
+
+
+	});
+
+	it("Should cancel deal", async function () {
+
+		//const tx = await market.connect(signers[1]).cancelBuying(bananaNewHash);
+
 	});
 
 

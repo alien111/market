@@ -185,8 +185,8 @@
       ]
     },
     "/Users/macbook/Desktop/market/contracts/Market.sol": {
-      "lastModificationDate": 1670786655504,
-      "contentHash": "287cad0656ab13b1616e960b5dfac66e",
+      "lastModificationDate": 1670865876794,
+      "contentHash": "8e5abe602f624c075ad5680d9706e957",
       "sourceName": "contracts/Market.sol",
       "solcConfig": {
         "version": "0.8.17",
