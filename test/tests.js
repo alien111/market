@@ -197,7 +197,48 @@ describe("Market", function () {
 
 	it("Should cancel deal", async function () {
 
-		//const tx = await market.connect(signers[1]).cancelBuying(bananaNewHash);
+		const tx = await market.addItem("Green banana", "Just a cool\nand green\nbanana!", 200);
+		const result = await tx.wait();
+
+		expect(result.events[0].args._by).to.equal(signers[0].address);
+		bananaHash = result.events[0].args._hash;
+
+		expect((await mnt.allowance(signers[1].address, marketAddress)).toString()).to.equal('0');
+		const tx1 = await mnt.connect(signers[1]).approve(marketAddress, '200');
+		await tx1.wait();
+		expect((await mnt.allowance(signers[1].address, marketAddress)).toString()).to.equal('200');
+
+		const tx2 = await market.connect(signers[1]).buyItem(bananaHash);
+		const result1 = await tx2.wait();
+
+		for (const event of result1.events) {
+			if (event.event == 'ItemBooked') {
+				expect(event.args._by).to.equal(signers[1].address);
+				expect(event.args._oldHash).to.equal(bananaHash);
+				bananaNewHash = event.args._newHash;
+			}
+		}
+
+		const result2 = await market.getItemByHash(bananaNewHash);
+		expect(result2.name).to.equal("Green banana");
+		expect(result2.description).to.equal("Just a cool\nand green\nbanana!");
+		expect(Number(result2.price)).to.equal(200);
+		expect(result2.seller).to.equal(signers[0].address);
+		expect(result2.buyer).to.equal(signers[1].address);
+
+		expect((await mnt.balanceOf(signers[1].address)).toString()).to.equal('2499600');
+		expect((await mnt.balanceOf(marketAddress)).toString()).to.equal('999999999999995000200');
+
+		const tx3 = await market.connect(signers[1]).cancelBuying(bananaNewHash);
+		const result3 = await tx3.wait();
+
+		for (const event of result3.events) {
+			if (event.event == 'DealCanceledByBuyer') {
+				expect(event.args._by).to.equal(signers[1].address);
+				expect(event.args._oldHash).to.equal(bananaNewHash);
+				expect(event.args._newHash).to.equal(bananaHash);
+			}
+		}
 
 	});
 

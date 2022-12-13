@@ -9,12 +9,11 @@ contract Market {
 	event ItemAdded(address indexed _by, bytes32 indexed _hash);
 	event MNTBought(address indexed _by, uint _amountOfMNT, uint _amountOfETH);
 	event MNTSold(address indexed _by, uint _amountOfMNT, uint _amountOfETH);
-	//event ItemHashChanged(bytes32 indexed _oldHash, bytes32 indexed _newHash);
 	event ItemBooked(address indexed _by, bytes32 indexed _oldHash, bytes32 indexed _newHash);
 	event DealConfirmedBySeller(address indexed _by, bytes32 indexed _hash);
 	event DealConfirmedByBuyer(address indexed _by, bytes32 indexed _hash);
 	event MNTPaidForDeal(address indexed _to, bytes32 indexed _hash);
-	event DealCanceledByBuyer(address indexed _by, bytes32 indexed _hash, bytes32 indexed _newHash);
+	event DealCanceledByBuyer(address indexed _by, bytes32 indexed _oldHash, bytes32 indexed _newHash);
 
 	struct Item {
 		string name;		// item name
